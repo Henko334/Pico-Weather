@@ -13,8 +13,8 @@ from time import sleep
 i2c = I2C(id=0, scl=Pin(17), sda=Pin(16), freq=10000)
 
 # Wi-Fi credentials
-SSID = "vanStaden"
-PASSWORD = "W1ld3h0nd1"
+SSID = "WifiNameHere"
+PASSWORD = "PasswordHere"
 
 # DB API list
 url = 'http://192.168.0.3:5000/log_event'
