@@ -1,0 +1,67 @@
+/* Reset & base */
+body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 10px;
+    background: linear-gradient(to right, #4facfe, #00f2fe);
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+}
+
+/* Container centers content and is responsive */
+.container {
+    max-width: 600px;
+    width: 90%;
+    margin: 20px auto;
+    text-align: center;
+}
+
+/* Header */
+h1 {
+    font-size: 2em;
+    margin-bottom: 20px;
+}
+
+/* Cards for readings */
+.card {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    margin: 10px 0;
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s;
+}
+
+/* Card hover effect for desktop */
+.card:hover {
+    transform: scale(1.02);
+}
+
+/* Card titles */
+.card h2 {
+    margin-bottom: 10px;
+    font-size: 1.5em;
+}
+
+/* Card values */
+.card p {
+    font-size: 1.8em;
+    font-weight: bold;
+    margin: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 400px) {
+    h1 {
+        font-size: 1.5em;
+    }
+    .card h2 {
+        font-size: 1.2em;
+    }
+    .card p {
+        font-size: 1.4em;
+    }
+}
