@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Current Readings</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="container">
+    <h1>Readings</h1>
+
+    <div class="card">
+        <h2>Temperature</h2>
+        <p><span id="tempC">--</span> &deg;C / <span id="tempF">--</span> &deg;F</p>
+    </div>
+
+    <div class="card">
+        <h2>Humidity</h2>
+        <p><span id="humidity">--</span> %</p>
+    </div>
+
+    <div class="card">
+        <h2>Pressure</h2>
+        <p><span id="pressure">--</span> hPa</p>
+    </div>
+</div>
+
+<script>
+async function updateData(){
+    try {
+        const res = await fetch("/weather");
+        const data = await res.json();
+        
+        const c = data.temperature;
+        const f = (c * 9/5) + 32;
+
+        document.getElementById("tempC").textContent = c.toFixed(1);
+        document.getElementById("tempF").textContent = f.toFixed(1);
+        document.getElementById("humidity").textContent = data.humidity;
+        document.getElementById("pressure").textContent = data.pressure;
+
+    } catch (err) {
+        console.log("Fetch error:", err);
+    }
+}
+
+setInterval(updateData, 2000);
+updateData();
+</script>
+
+</body>
+</html>
