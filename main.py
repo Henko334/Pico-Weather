@@ -10,11 +10,11 @@ from machine import Pin, I2C
 from time import sleep
 
 # Initialize I2C communication
-i2c = I2C(id=0, scl=Pin(17), sda=Pin(16), freq=10000)
+i2c = I2C(id=0, scl=Pin(17), sda=Pin(16), freq=100000)
 
 # Wi-Fi credentials
-SSID = "WifiNameHere"
-PASSWORD = "PasswordHere"
+SSID = "Wifi Name"
+PASSWORD = "wifi Password"
 
 # DB API list
 url = 'http://192.168.0.3:5000/log_event'
@@ -34,6 +34,16 @@ tempC = 0
 hum = 0
 pres = 0
 
+# Load HTML once
+try:
+    with open("index.html", "r") as f:
+        HTML = f.read()
+except:
+    HTML = "<h1>Missing index.html</h1>"
+    
+# -------------------------
+# Logging
+# -------------------------
 def log_event(message):
     try:
         data = {
@@ -58,6 +68,9 @@ def log_readings(timer=None):
     except Exception as e:
         print("Failed to write readings to DB", e)
 
+# -------------------------
+# WiFi
+# -------------------------
 # Connect to Wi-Fi
 def connect_wifi(ssid, password):
     wlan = network.WLAN(network.STA_IF)
@@ -78,57 +91,6 @@ def check_wifi_status():
     wlan = network.WLAN(network.STA_IF)
     return wlan.isconnected()
 
-# Start HTTP server on Pi Pico
-def serve_data():
-    addr = socket.getaddrinfo('192.168.0.113', 80)[0][-1]
-    s = socket.socket()
-    s.bind(addr)
-    s.listen(1)
-
-    while True:
-        cl, addr = s.accept()
-        cl.settimeout(30)
-
-        try:
-            # Read the HTTP request to check the requested path
-            request = cl.recv(1024).decode()
-            
-            # Read sensor data
-            global tempC, hum, pres
-            tempC = float(bme.temperature.replace('C', '').replace('°C', ''))
-            hum = float(bme.humidity.replace('%', ''))
-            pres = float(bme.pressure.replace('hPa', ''))
-
-            # Prepare weather data
-            data = {
-                "temperature": tempC,
-                "humidity": hum,
-                "pressure": pres,
-            }
-
-            # Check if the path is '/weather'
-            if '/weather' in request:
-                cl.send('HTTP/1.1 200 OK\r\n')
-                cl.send('Content-Type: application/json\r\n\r\n')
-                cl.send(json.dumps(data))
-            else:
-                # Handle invalid endpoint
-                cl.send('HTTP/1.1 404 Not Found\r\n')
-                cl.send('Content-Type: text/plain\r\n\r\n')
-                cl.send('404 Not Found')
-
-        except Exception as e:
-            log_event(f"Error: {e}")
-            cl.send('HTTP/1.1 500 Internal Server Error\r\n')
-            cl.send('Content-Type: text/plain\r\n\r\n')
-            cl.send('Error reading data')
-
-        cl.close()
-
-# Timer functions
-wifi_timer = machine.Timer(-1)
-reading_timer = machine.Timer(-1)
-
 # Check Wi-Fi status every 5 minutes
 def wifi_check(timer):
     if not check_wifi_status():
@@ -137,15 +99,100 @@ def wifi_check(timer):
         led.value(0)
     else:
         led.value(1)  # Keep LED on when connected
+        
+# -------------------------
+# Sensor update
+# -------------------------
+def update_sensor(timer=None):
+    global tempC, hum, pres
+    try:
+        tempC = float(bme.temperature.replace('C', '').replace('°C', ''))
+        hum = float(bme.humidity.replace('%', ''))
+        pres = float(bme.pressure.replace('hPa', ''))
+    except Exception as e:
+        print("Sensor read error:", e)
+        
+# -------------------------
+# Web Server
+# -------------------------
+# Start HTTP server on Pi Pico
+def serve_data():
+    addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
+    s = socket.socket()
+    s.bind(addr)
+    s.listen(1)
 
-# Main program
+    print("Server running on port 80")
+
+    while True:
+        cl, addr = s.accept()
+        cl.settimeout(5)
+
+        try:
+            request = cl.recv(1024).decode()
+            # Parse the first line of the HTTP request
+            request_line = request.split('\n')[0]  # e.g. "GET / HTTP/1.1"
+            path = request_line.split(' ')[1]
+
+            # JSON endpoint
+            if  path == "/weather":
+                data = {
+                    "temperature": tempC,
+                    "humidity": hum,
+                    "pressure": pres
+                }
+
+                cl.send('HTTP/1.1 200 OK\r\n')
+                cl.send('Content-Type: application/json\r\n\r\n')
+                cl.send(json.dumps(data))
+
+            # Homepage
+            elif path == "/":
+                cl.send('HTTP/1.1 200 OK\r\n')
+                cl.send('Content-Type: text/html\r\n\r\n')
+                cl.send(HTML)
+            elif path == "/style.css":
+                try:
+                    with open("style.css", "r") as f:
+                        css = f.read()
+                    cl.send("HTTP/1.1 200 OK\r\n")
+                    cl.send("Content-Type: text/css\r\n\r\n")
+                    cl.send(css)
+                except:
+                    cl.send("HTTP/1.1 404 Not Found\r\n\r\n")
+
+            # 404
+            else:
+                cl.send('HTTP/1.1 404 Not Found\r\n')
+                cl.send('Content-Type: text/plain\r\n\r\n')
+                cl.send('404 Not Found')
+
+        except Exception as e:
+            log_event(f"Server error: {e}")
+
+        finally:
+            cl.close()
+
+# -------------------------
+# Timers
+# -------------------------
+wifi_timer = machine.Timer(-1)
+reading_timer = machine.Timer(-1)
+sensor_timer = machine.Timer(-1)
+
+# -------------------------
+# Start
+# -------------------------
 connect_wifi(SSID, PASSWORD)
 
 # Set timers
 wifi_timer.init(period=300000, mode=machine.Timer.PERIODIC, callback=wifi_check)  # 5 minutes
 reading_timer.init(period=900000, mode=machine.Timer.PERIODIC, callback=log_readings)  # 15 minutes
+sensor_timer.init(period=2000, mode=machine.Timer.PERIODIC, callback=update_sensor)
 
 # Main loop to keep the program running
 while True:
     serve_data()
     time.sleep(1)
+
+
